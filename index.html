@@ -1,3 +1,11 @@
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  const SERVER_URL = "https://changmai-sync.onrender.com/";
+  const socket = io(SERVER_URL);
+  socket.on("connect", () => {
+    console.log("เชื่อมต่อสำเร็จ!");
+  });
+</script>
 <!DOCTYPE html>
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
