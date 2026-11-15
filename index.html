@@ -419,8 +419,8 @@ function fxOn(d){return !edit&&d.from!=null&&d.from<d.st.length}
 // จุดอ้างอิงของจุด k: (1) จุดเริ่มที่แตะเลือก  (2) จุดที่ติ๊ก ✓ ล่าสุดก่อนหน้า (เมื่อจุด k ติ๊กแล้วและข้ามจุดตรงกลาง)  ไม่งั้น -1 = ใช้ระยะจากจุดก่อนหน้าตามปกติ
 function fxRef(d,k){var s=d.st[k];if(edit||!s||s.g==="เดินทาง")return -1;
  if(fxOn(d))return k>d.from?d.from:-1;
- if(s.done){var p=prevDone(d,k);if(p>=0&&p<k-1)return p}
- return -1}
+ var p=prevDone(d,k);if(p>=0)return p;
+ return k>0?k-1:-1}
 // จุดที่ไม่มีพิกัด (เช่น "รับรถเช่า") ค้นชื่อไม่เจอ → ถอยไปใช้พิกัด/ชื่อของจุดก่อนหน้า (รับรถที่สนามบิน = ที่เดียวกับสนามบิน)
 function fxFb(d,i){if(d.st[i].q)return null;for(var j=i-1;j>=0;j--){var x=d.st[j];if(x.q||(x.n||"").trim())return x.q||x.n}return null}
 function fxEnsure(){var d=S.days[cur];if(!d||edit||FXB)return;var todo=[];
