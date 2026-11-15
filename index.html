@@ -400,11 +400,25 @@ function col(i){return C[i%C.length]}
 var NP=["เดินทาง","เช็คเอาท์","เริ่มต้น","รถเช่า","บินกลับ"];
 var ROUTE_URL="https://changmai-sync.onrender.com/route",SEARCH_URL=ROUTE_URL.replace("/route","/search"),rtT=null,srT=null,sgR={};
 // ค้นหาสถานที่ให้เลือก (OpenStreetMap ผ่านเซิร์ฟเวอร์) — เลือกแล้วเก็บพิกัดไว้ คำนวณระยะแม่นกว่าเดาจากชื่อ
-function srch(k){var s=S.days[cur].st[k],q=((s&&s.n)||"").trim(),box=document.getElementById("sg"+k);if(!box)return;if(q.length<2){box.innerHTML="";return}
+function srVars(q){var a=[];function add(x){x=(x||"").replace(/\s+/g," ").trim();if(x.length>1&&a.indexOf(x)<0)a.push(x)}
+ add(q);var c=q.replace(/\b\d{5}\b/g,"").replace(/^\s*[\d\/\-]+\s*/,"").replace(/(ตำบล|อำเภอ|จังหวัด|แขวง|เขต|ต\.|อ\.|จ\.)\s*/g,"");add(c);
+ var w=c.split(/\s+/).filter(Boolean);if(w.length>2){add(w.slice(0,3).join(" "));add(w.slice(0,2).join(" "))}
+ if(!/เชียงใหม่|ลำพูน|เชียงราย|แม่ฮ่องสอน/.test(q))add(c+" เชียงใหม่");
+ return a.slice(0,5)}
+function srch(k){var s=S.days[cur].st[k],q=((s&&s.n)||"").trim(),box=document.getElementById("sg"+k);if(!box)return;if(q.length<2){box.innerHTML='<div class="sgm">พิมพ์ชื่อสถานที่ในช่องชื่อก่อน แล้วกด 🔎</div>';return}
+ // วางพิกัด (18.80,98.95) หรือลิงก์ Google Maps ลงในช่องชื่อ → ใช้พิกัดนั้นได้เลย
+ var cm=q.match(/(-?\d{1,2}\.\d{3,})\s*[,\s]\s*(-?\d{2,3}\.\d{3,})/);
+ if(cm&&Math.abs(+cm[1])<=90&&Math.abs(+cm[2])<=180){sgR[k]=[{name:q,sub:"ใช้พิกัดที่วางไว้",lat:cm[1],lon:cm[2],keep:1}];box.innerHTML='<button class="sgb" onclick="pickP('+k+',0)"><b>📍 ใช้พิกัด '+E(cm[1]+","+cm[2])+'</b><span>เก็บชื่อเดิมไว้ ใช้พิกัดนี้คำนวณระยะ</span></button>';return}
  box.innerHTML='<div class="sgm">🔎 กำลังค้นหา…</div>';
- fetch(SEARCH_URL+"?q="+encodeURIComponent(q)).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j&&j.error||r.status);return j})}).then(function(j){sgR[k]=j.results;
-  box.innerHTML=j.results.length?j.results.map(function(x,i){return'<button class="sgb" onclick="pickP('+k+','+i+')"><b>'+E(x.name)+'</b><span>'+E(x.sub)+'</span></button>'}).join(""):'<div class="sgm">ไม่เจอ ลองพิมพ์ชื่อ+จังหวัด</div>'}).catch(function(e){box.innerHTML='<div class="sgm">⚠️ ค้นหาไม่สำเร็จ ('+E(e.message)+')</div>'})}
-function pickP(k,i){var x=(sgR[k]||[])[i];if(!x)return;var s=S.days[cur].st[k];s.n=x.name;s.q=x.lat+","+x.lon;delete s.aq;save();noA=true;rStats();rDay();sched()}
+ var vs=srVars(q),res=[],seen={},vi=0;
+ (function nxv(){if(vi>=vs.length||res.length>=6)return done();var v=vs[vi++];
+  fetch(SEARCH_URL+"?q="+encodeURIComponent(v)).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j&&j.error||r.status);return j})})
+  .then(function(j){(j.results||[]).forEach(function(x){var key=Math.round(x.lat*1000)+","+Math.round(x.lon*1000);if(!seen[key]){seen[key]=1;res.push(x)}});setTimeout(nxv,res.length?0:1100)})
+  .catch(function(e){if(!res.length&&String(e.message)!=="rate_limited"){box.innerHTML='<div class="sgm">⚠️ ค้นหาไม่สำเร็จ ('+E(e.message)+') — เซิร์ฟเวอร์อาจกำลังตื่น ลองกด 🔎 อีกครั้ง</div>';return}setTimeout(nxv,1500)})})();
+ function done(){sgR[k]=res;
+  if(res.length){box.innerHTML=res.map(function(x,i){return'<button class="sgb" onclick="pickP('+k+','+i+')"><b>'+E(x.name)+'</b><span>'+E(x.sub)+'</span></button>'}).join("");return}
+  box.innerHTML='<div class="sgm">ไม่เจอสถานที่ที่ตรงกับ “'+E(q.slice(0,40))+'”<br>• ลองพิมพ์ชื่อสั้น ๆ + จังหวัด เช่น “อ่างแก้ว เชียงใหม่”<br>• หรือเปิด Google Maps กดค้างที่จุด คัดลอกพิกัด (เช่น 18.8,98.9) มาวางในช่องชื่อ แล้วกด 🔎 อีกครั้ง<br><a class="sgb" style="display:block;margin-top:6px;text-align:center" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q)+'">🗺️ ค้นหาใน Google Maps</a></div>'}}
+function pickP(k,i){var x=(sgR[k]||[])[i];if(!x)return;var s=S.days[cur].st[k];if(!x.keep)s.n=x.name;s.q=x.lat+","+x.lon;delete s.aq;save();noA=true;rStats();rDay();sched()}
 
 /* ===== ระยะทางจริงระหว่างจุดไหนก็ได้ (ข้ามวันได้) ===== */
 var FD={f:"",t:"",res:null,busy:false},fdT=null;
@@ -421,21 +435,31 @@ function fxRef(d,k){var s=d.st[k];if(edit||!s||s.g==="เดินทาง")ret
  if(fxOn(d))return k>d.from?d.from:-1;
  var p=prevDone(d,k);if(p>=0)return p;
  return k>0?k-1:-1}
-// จุดที่ไม่มีพิกัด (เช่น "รับรถเช่า") ค้นชื่อไม่เจอ → ถอยไปใช้พิกัด/ชื่อของจุดก่อนหน้า (รับรถที่สนามบิน = ที่เดียวกับสนามบิน)
+// รายชื่อที่ลองค้นตามลำดับ: พิกัด/ที่อยู่เต็ม → ชื่อ → ที่อยู่แบบตัดคำฟุ่มเฟือย → ชื่อ+เชียงใหม่ → (เช็คเอาท์ = โรงแรมที่เช็คอินไว้) → จุดก่อนหน้า
+function fxCands(d,i){var s=d.st[i],a=[];function add(x){x=(x||"").replace(/\s+/g," ").trim();if(x&&a.indexOf(x)<0)a.push(x)}
+ add(s.q);add(s.n);
+ if(s.g==="เช็คเอาท์"){for(var di=cur;di>=0&&a.length<6;di--){var ds=S.days[di].st;for(var j=ds.length-1;j>=0;j--){if(ds[j].g==="เช็คอิน"&&!(di===cur&&j>=i)){add(ds[j].q);add(ds[j].n);di=-1;break}}}}
+ var c=(s.q||"").replace(/\b\d{5}\b/g,"").replace(/^\s*[\d\/\-]+\s*/,"").replace(/(ตำบล|อำเภอ|จังหวัด|แขวง|เขต)\s*/g,"");add(c);
+ var m=(s.q||"").match(/(ตำบล|ต\.)\s*(\S+)/);if(m&&s.n)add(s.n+" "+m[2]);
+ if(s.n&&!/เชียงใหม่|ลำพูน|เชียงราย|แม่ฮ่องสอน/.test(s.n))add(s.n+" เชียงใหม่");
+ var fb=s.q?null:fxFb(d,i);add(fb);return a}
 function fxFb(d,i){if(d.st[i].q)return null;for(var j=i-1;j>=0;j--){var x=d.st[j];if(x.q||(x.n||"").trim())return x.q||x.n}return null}
 function fxEnsure(){var d=S.days[cur];if(!d||edit||FXB)return;var todo=[];
- for(var k=0;k<d.st.length;k++){var p=fxRef(d,k);if(p<0)continue;var a=d.st[p],b=d.st[k];if(!(a.q||a.n)||!(b.q||b.n))continue;var key=fxKey(d,p,k);if(!FXC[key]&&!todo.some(function(x){return x.key===key}))todo.push({key:key,qa:a.q||a.n,qb:b.q||b.n,fa:fxFb(d,p),fb:fxFb(d,k)})}
+ for(var k=0;k<d.st.length;k++){var p=fxRef(d,k);if(p<0)continue;var a=d.st[p],b=d.st[k];if(!(a.q||a.n)||!(b.q||b.n))continue;var key=fxKey(d,p,k);if(!FXC[key]&&!todo.some(function(x){return x.key===key}))todo.push({key:key,ca:fxCands(d,p),cb:fxCands(d,k),ia:0,ib:0})}
  if(!todo.length)return;FXB=true;
  (function nx(){var t=todo.shift();if(!t){FXB=false;fxEnsure();return}
-  var tries=0;(function go(){tries++;
-   fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:[t.qa,t.qb]})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error?(j.error+(j.place?":"+j.place:"")):x.status);return j})})
+  var tries=0;(function go(){tries++;var qa=t.ca[t.ia],qb=t.cb[t.ib];
+   fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:[qa,qb]})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error?(j.error+(j.place?":"+j.place:"")):x.status);return j})})
    .then(function(j){var l=j.legs[0];FXC[t.key]={d:Math.max(1,Math.round(l.km))+" กม. · "+dur(Math.max(1,l.min))};fxSave();fin()})
    .catch(function(e){var m=String(e&&e.message||e);
-    if(m.indexOf("not_found")===0){var nm=m.slice(10),usedFb=false;
-     if(t.fa&&t.fa!==t.qb&&(nm===t.qa||!t.fb||nm!==t.qb)&&nm!==t.qb){t.qa=t.fa;t.fa=null;usedFb=true}
-     else if(t.fb&&t.fb!==t.qa){t.qb=t.fb;t.fb=null;usedFb=true}
-     if(usedFb){go();return}}
-    if(tries<4&&m.indexOf("not_found")!==0){setSy("⏳ กำลังปลุกเซิร์ฟเวอร์ ลองใหม่ครั้งที่ "+tries+"…");setTimeout(go,tries*5000);return}
+    if(m.indexOf("not_found")===0){var nm=m.slice(10);
+     if(nm===qa&&t.ia+1<t.ca.length)t.ia++;
+     else if(nm===qb&&t.ib+1<t.cb.length)t.ib++;
+     else if(t.ia+1<t.ca.length)t.ia++;
+     else if(t.ib+1<t.cb.length)t.ib++;
+     else{FXC[t.key]={err:m};fin();return}
+     tries--;go();return}
+    if(tries<4){setSy("⏳ กำลังปลุกเซิร์ฟเวอร์ ลองใหม่ครั้งที่ "+tries+"…");setTimeout(go,tries*5000);return}
     FXC[t.key]={err:m};fin()})})();
   function fin(){noA=true;rDay();nx()}})()}
 function fxRetry(){Object.keys(FXC).forEach(function(k){if(FXC[k]&&FXC[k].err)delete FXC[k]});FXB=false;noA=true;rDay()}
@@ -446,7 +470,7 @@ function frLine(d,k,s){
  if(fxOn(d)){if(k<d.from||s.g==="เดินทาง")return"";
   if(k===d.from)return'<div class="fr">📍 จุดเริ่มที่เลือก (แตะชื่อจุดนี้อีกครั้งเพื่อยกเลิก)</div>'}
  var p=fxRef(d,k);
- if(p>=0){var r=FXC[fxKey(d,p,k)];return'<div class="fr">📍 จาก '+E(d.st[p].n)+' → '+(r?(r.d?"✓ "+E(r.d):'คำนวณไม่ได้ ('+E(String(r.err).indexOf("not_found")===0?"หาตำแหน่งไม่เจอ":r.err)+') <button class="fdb" onclick="event.stopPropagation();fxRetry()">↻ ลองใหม่</button>'):"กำลังคำนวณ…")+'</div>'}
+ if(p>=0){var r=FXC[fxKey(d,p,k)];return'<div class="fr">📍 จาก '+E(d.st[p].n)+' → '+(r?(r.d?"✓ "+E(r.d):'คำนวณไม่ได้ ('+E(String(r.err).indexOf("not_found")===0?"หาตำแหน่งไม่เจอ: "+String(r.err).slice(10).slice(0,40)+" · ปักพิกัดด้วย ✏️ แก้ไข → 🔎":r.err)+') <button class="fdb" onclick="event.stopPropagation();fxRetry()">↻ ลองใหม่</button>'):"กำลังคำนวณ…")+'</div>'}
  return k&&/กม|น\./.test(s.d)?'<div class="fr">🚗 จาก '+E(d.st[k-1].n||"จุดก่อนหน้า")+' → '+(s.rl?'✓ ':'≈ ')+E(s.d)+'</div>':''}
 function cumFrom(d,k){if(d.from==null||k<=d.from||k>=d.st.length)return null;var K=0,M=0,real=true;for(var j=d.from+1;j<=k;j++){var s=d.st[j];K+=km(s.d);M+=mins(s.d);if(!s.rl)real=false}return{K:K,M:M,real:real}}
 function fdTo(k){var d=S.days[cur];FD.f=cur+":"+(d.from!=null?d.from:0);FD.t=cur+":"+k;FD.res=null;fdGo();var e=document.querySelector(".fd");if(e)e.scrollIntoView({behavior:"smooth",block:"center"})}
