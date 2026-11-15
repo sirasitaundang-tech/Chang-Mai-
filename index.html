@@ -389,14 +389,20 @@ function fxRef(d,k){var s=d.st[k];if(edit||!s||s.g==="เดินทาง")ret
  if(fxOn(d))return k>d.from?d.from:-1;
  if(s.done){var p=prevDone(d,k);if(p>=0&&p<k-1)return p}
  return -1}
+// จุดที่ไม่มีพิกัด (เช่น "รับรถเช่า") ค้นชื่อไม่เจอ → ถอยไปใช้พิกัด/ชื่อของจุดก่อนหน้า (รับรถที่สนามบิน = ที่เดียวกับสนามบิน)
+function fxFb(d,i){if(d.st[i].q)return null;for(var j=i-1;j>=0;j--){var x=d.st[j];if(x.q||(x.n||"").trim())return x.q||x.n}return null}
 function fxEnsure(){var d=S.days[cur];if(!d||edit||FXB)return;var todo=[];
- for(var k=0;k<d.st.length;k++){var p=fxRef(d,k);if(p<0)continue;var a=d.st[p],b=d.st[k];if(!(a.q||a.n)||!(b.q||b.n))continue;var key=fxKey(d,p,k);if(!FXC[key]&&!todo.some(function(x){return x.key===key}))todo.push({key:key,qa:a.q||a.n,qb:b.q||b.n})}
+ for(var k=0;k<d.st.length;k++){var p=fxRef(d,k);if(p<0)continue;var a=d.st[p],b=d.st[k];if(!(a.q||a.n)||!(b.q||b.n))continue;var key=fxKey(d,p,k);if(!FXC[key]&&!todo.some(function(x){return x.key===key}))todo.push({key:key,qa:a.q||a.n,qb:b.q||b.n,fa:fxFb(d,p),fb:fxFb(d,k)})}
  if(!todo.length)return;FXB=true;
  (function nx(){var t=todo.shift();if(!t){FXB=false;fxEnsure();return}
   var tries=0;(function go(){tries++;
    fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:[t.qa,t.qb]})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error?(j.error+(j.place?":"+j.place:"")):x.status);return j})})
    .then(function(j){var l=j.legs[0];FXC[t.key]={d:Math.max(1,Math.round(l.km))+" กม. · "+dur(Math.max(1,l.min))};fxSave();fin()})
    .catch(function(e){var m=String(e&&e.message||e);
+    if(m.indexOf("not_found")===0){var nm=m.slice(10),usedFb=false;
+     if(t.fa&&t.fa!==t.qb&&(nm===t.qa||!t.fb||nm!==t.qb)&&nm!==t.qb){t.qa=t.fa;t.fa=null;usedFb=true}
+     else if(t.fb&&t.fb!==t.qa){t.qb=t.fb;t.fb=null;usedFb=true}
+     if(usedFb){go();return}}
     if(tries<4&&m.indexOf("not_found")!==0){setSy("⏳ กำลังปลุกเซิร์ฟเวอร์ ลองใหม่ครั้งที่ "+tries+"…");setTimeout(go,tries*5000);return}
     FXC[t.key]={err:m};fin()})})();
   function fin(){noA=true;rDay();nx()}})()}
