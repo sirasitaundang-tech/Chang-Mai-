@@ -1,0 +1,16 @@
+{
+  "name": "ทริปเชียงใหม่ 25 พ.ย. – 1 ธ.ค.",
+  "short_name": "ทริปเชียงใหม่",
+  "description": "แผนเที่ยวเชียงใหม่ ซิงค์สดทุกเครื่อง ใช้ออฟไลน์ได้",
+  "lang": "th",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fff5f8",
+  "theme_color": "#e8336f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -2,6 +2,7 @@
 <html lang="th"><head><meta charset="utf-8">
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#e8336f"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="ทริปเชียงใหม่">
 <title>เที่ยวเชียงใหม่ 25 พ.ย. – 1 ธ.ค. 2569</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Noto+Serif+Thai:wght@600;700&display=swap" rel="stylesheet">
 <style>
@@ -122,7 +123,7 @@ header{position:relative;overflow:hidden}
 .n{cursor:pointer}.n.ck{background:#12a36a!important}
 .st.dn{opacity:.6}.st.dn .nm{text-decoration:line-through}
 .na{animation:none!important}
-.fr{font-size:12px;color:var(--mt,#888);margin-top:2px}.mid{cursor:pointer}.eta{font-size:12px;color:var(--dc);font-weight:600;margin-top:2px}
+.sg{display:flex;flex-direction:column;gap:4px;margin:0 0 6px}.sgb{text-align:left;border:1px solid var(--chip);background:var(--chip);color:inherit;border-radius:10px;padding:8px 10px;font:inherit;cursor:pointer}.sgb b{display:block;font-size:14px}.sgb span,.sgm{font-size:12px;opacity:.75}.fr{font-size:12px;color:var(--mt,#888);margin-top:2px}.mid{cursor:pointer}.eta{font-size:12px;color:var(--dc);font-weight:600;margin-top:2px}
 .sy{margin-left:auto;align-self:center;font-size:12px;color:var(--mu);font-weight:600}
 .stats small{display:block;font-size:10px;color:var(--mu);margin-top:1px}
 .stats b{font-size:18px}
@@ -355,9 +356,15 @@ var t=document.getElementById("tabs"),v=document.getElementById("v"),tb=document
 var dl0=document.createElement("datalist");dl0.id="tags";dl0.innerHTML=Object.keys(TG).map(function(k){return'<option value="'+k+'">'}).join("");document.body.appendChild(dl0);
 function col(i){return C[i%C.length]}
 var NP=["เดินทาง","เช็คเอาท์","เริ่มต้น","รถเช่า","บินกลับ"];
-var ROUTE_URL="https://changmai-sync.onrender.com/route",rtT=null,rtMsg="";
+var ROUTE_URL="https://changmai-sync.onrender.com/route",SEARCH_URL=ROUTE_URL.replace("/route","/search"),rtT=null,srT=null,sgR={};
+// ค้นหาสถานที่ให้เลือก (OpenStreetMap ผ่านเซิร์ฟเวอร์) — เลือกแล้วเก็บพิกัดไว้ คำนวณระยะแม่นกว่าเดาจากชื่อ
+function srch(k){var s=S.days[cur].st[k],q=((s&&s.n)||"").trim(),box=document.getElementById("sg"+k);if(!box)return;if(q.length<2){box.innerHTML="";return}
+ box.innerHTML='<div class="sgm">🔎 กำลังค้นหา…</div>';
+ fetch(SEARCH_URL+"?q="+encodeURIComponent(q)).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j&&j.error||r.status);return j})}).then(function(j){sgR[k]=j.results;
+  box.innerHTML=j.results.length?j.results.map(function(x,i){return'<button class="sgb" onclick="pickP('+k+','+i+')"><b>'+E(x.name)+'</b><span>'+E(x.sub)+'</span></button>'}).join(""):'<div class="sgm">ไม่เจอ ลองพิมพ์ชื่อ+จังหวัด</div>'}).catch(function(e){box.innerHTML='<div class="sgm">⚠️ ค้นหาไม่สำเร็จ ('+E(e.message)+')</div>'})}
+function pickP(k,i){var x=(sgR[k]||[])[i];if(!x)return;var s=S.days[cur].st[k];s.n=x.name;s.q=x.lat+","+x.lon;delete s.aq;save();noA=true;rStats();rDay();sched()}
 function dur(m){return m>=60?Math.floor(m/60)+" ชม."+(m%60?" "+(m%60)+" น.":""):m+" น."}
-function sched(){clearTimeout(rtT);rtT=setTimeout(function(){reroute(cur)},1500)}
+function sched(ms){clearTimeout(rtT);rtT=setTimeout(function(){reroute(cur)},ms||1500)}
 // คำนวณระยะ/เวลาขับ "จากจุดก่อนหน้า" ของทุกจุดที่มีคำค้น Google Maps ติดกัน (จุดที่ไม่มีคำค้นคงค่าเดิมไว้)
 function reroute(di,manual){var d=S.days[di];if(!d)return Promise.resolve();var runs=[],r=null;
  d.st.forEach(function(s,k){if(s.q){if(!r){r=[];runs.push(r)}r.push(k)}else r=null});
@@ -383,7 +390,7 @@ function rDay(){var d=S.days[cur],ET=etas(d),h='<div class="day"><div class="dh"
  if(edit)h+='<input class="in" data-p="day" data-f="tot" value="'+E(d.tot)+'" placeholder="รวมระยะทาง เช่น 14 กม. · 39 น.">';
  else{var ru=S.map?routeUrl(d):"";h+='<div class="tot">🚗 รวม '+E(d.tot)+'</div><div class="bar"><i style="width:'+Math.min(100,Math.round(km(d.tot)/207*100))+'%"></i></div><div class="cap">ระยะทางเทียบวันที่ไกลที่สุด · '+d.st.length+' จุด · แตะชื่อจุดเพื่อดูเวลาถึงจากจุดนั้น</div>'+rWx()+prog(d)+(ru?'<a class="rtb" target="_blank" rel="noopener" href="'+E(ru)+'">🧭 เส้นทางทั้งวันใน Google Maps</a>':'')}
  h+=rNx(d,ET);d.st.forEach(function(s,k){
-  if(edit){h+='<div class="st ed"><div class="n">'+(k+1)+'</div><div class="ef"><input class="in" data-p="st" data-i="'+k+'" data-f="n" value="'+E(s.n)+'" placeholder="ชื่อสถานที่"><div class="r2"><input class="in" list="tags" data-p="st" data-i="'+k+'" data-f="g" value="'+E(s.g)+'" placeholder="ประเภท"><input class="in" data-p="st" data-i="'+k+'" data-f="d" value="'+E(s.d)+'" placeholder="ระยะ/เวลา"></div><input class="in" inputmode="numeric" data-p="st" data-i="'+k+'" data-f="m" value="'+E(s.m||"")+'" placeholder="เวลาที่อยู่ที่จุดนี้ (นาที)"><input class="in" data-p="st" data-i="'+k+'" data-f="t" value="'+E(s.t)+'" placeholder="หมายเหตุ"><input class="in" data-p="st" data-i="'+k+'" data-f="q" value="'+E(s.q)+'" placeholder="คำค้นหาใน Google Maps"></div><div class="ac"><button onclick="mv('+k+',-1)">↑</button><button onclick="mv('+k+',1)">↓</button><button onclick="del('+k+')">🗑️</button></div></div>'}
+  if(edit){h+='<div class="st ed"><div class="n">'+(k+1)+'</div><div class="ef"><input class="in" data-p="st" data-i="'+k+'" data-f="n" value="'+E(s.n)+'" placeholder="ชื่อสถานที่ (พิมพ์แล้วเลือกจากรายการ)"><div class="sg" id="sg'+k+'"></div><div class="r2"><input class="in" list="tags" data-p="st" data-i="'+k+'" data-f="g" value="'+E(s.g)+'" placeholder="ประเภท"><input class="in" data-p="st" data-i="'+k+'" data-f="d" value="'+E(s.d)+'" placeholder="ระยะ/เวลา"></div><input class="in" inputmode="numeric" data-p="st" data-i="'+k+'" data-f="m" value="'+E(s.m||"")+'" placeholder="เวลาที่อยู่ที่จุดนี้ (นาที)"><input class="in" data-p="st" data-i="'+k+'" data-f="t" value="'+E(s.t)+'" placeholder="หมายเหตุ"><input class="in" data-p="st" data-i="'+k+'" data-f="q" value="'+E(s.q)+'" placeholder="คำค้นหาใน Google Maps (ชื่อ+จังหวัด)">'+(s.q?'<a class="mp" target="_blank" rel="noopener" href="'+E(mapUrl(s.q))+'">🗺️ เช็คตำแหน่งใน Google Maps</a>':'')+'</div><div class="ac"><button onclick="mv('+k+',-1)">↑</button><button onclick="mv('+k+',1)">↓</button><button onclick="del('+k+')">🗑️</button><button onclick="insAt('+k+')" title="แทรกจุดใหม่ต่อจากจุดนี้">➕</button><button onclick="srch('+k+')" title="ค้นหาตำแหน่งจากชื่อ">🔎</button></div></div>'}
   else{var mp=S.map&&s.g!=="เดินทาง"&&s.q?'<a class="mp" target="_blank" rel="noopener" href="'+E(mapUrl(s.q))+'" title="เปิด Google Maps">🗺️</a>':'';
    h+='<div class="st'+(s.done?' dn':'')+(noA?' na':'')+'" style="animation-delay:'+(k*60)+'ms"><div class="n'+(s.done?' ck':'')+'" onclick="tk('+k+')" role="button">'+(s.done?'✓':(k+1))+'</div><div class="ico">'+ic(s.n,s.g)+'</div><div class="mid" onclick="selp('+k+')"><div class="nm">'+E(s.n)+'</div><div class="nt"><span class="tg">'+E(s.g)+'</span>'+(s.t?' '+E(s.t):'')+'</div>'+(k&&/กม|น\./.test(s.d)?'<div class="fr">🚗 จาก '+E(d.st[k-1].n||"จุดก่อนหน้า")+' → '+E(s.d)+'</div>':'')+(ET[k]?'<div class="eta">'+(ET.findIndex(function(x){return x})===k?'📍 อยู่ที่นี่ ':'🕒 ถึง ')+ET[k]+(+s.m?' · อยู่ '+E(s.m)+' น.':'')+'</div>':'')+'</div><div class="ds">'+(/กม|น\./.test(s.d)?"🚗 ":"")+E(s.d)+'</div>'+mp+'</div>'}});
  h+=rExp(d);
@@ -426,15 +433,17 @@ function ask(el,id,f){if(arm===id){arm=null;f();return}arm=id;el.textContent="�
 function doReset(){S=conv();cur=0;save();render()}
 function delDay(){S.days.splice(cur,1);save();render()}
 function addDay(){S.days.push({a:"วันที่ "+(S.days.length+1),b:"",sub:"",tot:"",st:[]});cur=S.days.length-1;save();render();window.scrollTo(0,0)}
-function addStop(){S.days[cur].st.push({n:"",g:"เที่ยว",t:"",d:"",q:""});save();rStats();rDay();sched()}
+function insAt(k){S.days[cur].st.splice(k+1,0,{n:"",g:"เที่ยว",t:"",d:"",q:"",aq:1});save();rStats();rDay();sched()}
+function addStop(){S.days[cur].st.push({n:"",g:"เที่ยว",t:"",d:"",q:"",aq:1});save();rStats();rDay();sched()}
 function del(k){S.days[cur].st.splice(k,1);save();rDay();sched()}
 function mv(k,d){var a=S.days[cur].st,j=k+d;if(j<0||j>=a.length)return;var x=a[k];a[k]=a[j];a[j]=x;save();rDay();sched()}
 function addL(k){S[k].push("");save();rLists()}
 function delL(k,i){S[k].splice(i,1);save();rLists()}
 document.addEventListener("input",function(e){var el=e.target,p=el.dataset.p;if(!p)return;var i=+el.dataset.i;
  if(p==="places")S.places=el.value;else if(p==="day"){S.days[cur][el.dataset.f]=el.value;if(el.dataset.f==="tot")rStats()}
- else if(p==="st"){S.days[cur].st[i][el.dataset.f]=el.value;if(el.dataset.f==="q")sched()}else S[p][i]=el.value;save()});
-document.addEventListener("change",function(e){var el=e.target;if(el.dataset&&el.dataset.p==="day"&&el.dataset.f==="s0"){noA=true;rDay()}});
+ else if(p==="st"){var sx=S.days[cur].st[i],f=el.dataset.f;sx[f]=el.value;if(f==="q"){delete sx.aq;sched()}else if(f==="n"&&sx.aq){clearTimeout(srT);srT=setTimeout(function(){srch(i)},700)}}else S[p][i]=el.value;save()});
+document.addEventListener("change",function(e){var el=e.target;if(el.dataset&&el.dataset.p==="day"&&el.dataset.f==="s0"){noA=true;rDay()}
+ if(el.dataset&&el.dataset.p==="st"&&el.dataset.f==="n"){var sy=S.days[cur].st[+el.dataset.i];if(sy&&sy.aq&&!sy.q&&sy.n){sy.q=sy.n;save();sched(3000)}}});
 function setSy(m){SYM=m;var e=document.getElementById("sy");if(e)e.textContent=m}
 function pushRemote(){if(!docRef||ro)return;ld=true;clearTimeout(wTimer);wTimer=setTimeout(flush,700);setSy("🟡 กำลังบันทึก…")}
 function flush(){if(wBusy){wDirty=true;return}var j=JSON.stringify(S);ld=false;if(j===lastJ){setSy("🟢 ซิงค์สด");return}wBusy=true;lastJ=j;
@@ -539,4 +548,5 @@ el.textContent=m})();
  sock.on("connect_error",function(){setSy("⏳ กำลังปลุกเซิร์ฟเวอร์ (ครั้งแรกอาจใช้ราว 1 นาที)")});
  setSy("🟡 กำลังเชื่อมต่อ…");
 })();
+try{if("serviceWorker" in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
 </script></body></html>
