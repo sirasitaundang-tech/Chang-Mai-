@@ -122,7 +122,7 @@ header{position:relative;overflow:hidden}
 .n{cursor:pointer}.n.ck{background:#12a36a!important}
 .st.dn{opacity:.6}.st.dn .nm{text-decoration:line-through}
 .na{animation:none!important}
-.eta{font-size:12px;color:var(--dc);font-weight:600;margin-top:2px}
+.fr{font-size:12px;color:var(--mt,#888);margin-top:2px}.mid{cursor:pointer}.eta{font-size:12px;color:var(--dc);font-weight:600;margin-top:2px}
 .sy{margin-left:auto;align-self:center;font-size:12px;color:var(--mu);font-weight:600}
 .stats small{display:block;font-size:10px;color:var(--mu);margin-top:1px}
 .stats b{font-size:18px}
@@ -363,11 +363,11 @@ function reroute(di,manual){var d=S.days[di];if(!d)return Promise.resolve();var 
  d.st.forEach(function(s,k){if(s.q){if(!r){r=[];runs.push(r)}r.push(k)}else r=null});
  runs=runs.filter(function(x){return x.length>1});
  if(!runs.length){if(manual)setSy("ℹ️ ต้องมีคำค้น Google Maps อย่างน้อย 2 จุดติดกัน");return Promise.resolve()}
- setSy("📍 กำลังคำนวณระยะจาก Google Maps…");
+ setSy("📍 กำลังคำนวณระยะ…");
  return Promise.all(runs.map(function(run){var qs=run.map(function(k){return d.st[k].q});
-  return fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:qs})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error||x.status);return j})}).then(function(j){
+  return fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:qs})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error?(j.error+(j.place?":"+j.place:"")):x.status);return j})}).then(function(j){
    run.forEach(function(k,i){if(i===0)return;var s=d.st[k],p=d.st[run[i-1]];if(s.q!==qs[i]||p.q!==qs[i-1])return;var l=j.legs[i-1];s.d=Math.max(1,Math.round(l.km))+" กม. · "+dur(Math.max(1,l.min))})})
- })).then(function(){var K=0,M=0;d.st.forEach(function(s){K+=km(s.d);M+=mins(s.d)});d.tot=K+" กม. · "+dur(M);save();noA=true;rDay();rStats();setSy("🟢 คำนวณระยะจาก Google Maps แล้ว")}).catch(function(e){var m=String(e&&e.message||e);setSy(m==="no_key"?"⚠️ ยังไม่ได้ตั้ง GOOGLE_MAPS_KEY ที่ Render":m==="rate_limited"?"⚠️ เรียกบ่อยเกินไป รอสักครู่":"⚠️ คำนวณระยะไม่สำเร็จ ("+m+")")})}
+ })).then(function(){var K=0,M=0;d.st.forEach(function(s){K+=km(s.d);M+=mins(s.d)});d.tot=K+" กม. · "+dur(M);save();noA=true;rDay();rStats();setSy("🟢 คำนวณระยะแล้ว")}).catch(function(e){var m=String(e&&e.message||e);setSy(m.indexOf("not_found")===0?"⚠️ หาตำแหน่ง “"+m.slice(10)+"” ไม่เจอ ลองแก้คำค้นให้ชัดขึ้น (ใส่ชื่อ+จังหวัด)":m==="rate_limited"?"⚠️ เรียกบ่อยเกินไป รอสักครู่":"⚠️ คำนวณระยะไม่สำเร็จ ("+m+")")})}
 function rStats(){var P=0,pl2=0,kt=0,kl=0,mt=0,ml=0,dl=0,n=S.days.length;
  S.days.forEach(function(d){var open=!d.st.length;d.st.forEach(function(s){var k=km(s.d),m=mins(s.d),pl=NP.indexOf(s.g)<0;kt+=k;mt+=m;if(pl)P++;if(!s.done){kl+=k;ml+=m;open=true;if(pl)pl2++}});if(open)dl++});
  stats.innerHTML='<div><em>🗓️</em><b>'+dl+'</b><span>วันที่เหลือ</span><small>จาก '+n+' วัน</small></div><div><em>📍</em><b>'+pl2+'</b><span>สถานที่เหลือ</span><small>จาก '+P+'</small></div><div><em>🛣️</em><b>'+kl+'</b><span>กม. เหลือ</span><small>จาก '+kt+'</small></div><div><em>⏱️</em><b>'+(ml/60).toFixed(1)+'</b><span>ชม. เหลือ</span><small>จาก '+(mt/60).toFixed(1)+'</small></div>'}
@@ -380,12 +380,12 @@ function rDay(){var d=S.days[cur],ET=etas(d),h='<div class="day"><div class="dh"
  if(edit)h+='<input class="in" data-p="day" data-f="a" value="'+E(d.a)+'" placeholder="วันที่ 1"><input class="in" data-p="day" data-f="b" value="'+E(d.b)+'" placeholder="พุธ 25 พ.ย.">';
  else h+='<h2>'+E(d.a)+' · '+E(d.b)+'</h2>';
  h+=(edit?'<input class="in" data-p="day" data-f="sub" value="'+E(d.sub)+'" placeholder="เส้นทาง">':'<div class="rt">'+E(d.sub)+'</div>')+'</div></div>';
- if(edit)h+='<input class="in" data-p="day" data-f="tot" value="'+E(d.tot)+'" placeholder="รวมระยะทาง เช่น 14 กม. · 39 น.">'+tmRow(d);
- else{var ru=S.map?routeUrl(d):"";h+='<div class="tot">🚗 รวม '+E(d.tot)+'</div><div class="bar"><i style="width:'+Math.min(100,Math.round(km(d.tot)/207*100))+'%"></i></div><div class="cap">ระยะทางเทียบวันที่ไกลที่สุด · '+d.st.length+' จุด</div>'+tmRow(d)+rWx()+prog(d)+(ru?'<a class="rtb" target="_blank" rel="noopener" href="'+E(ru)+'">🧭 เส้นทางทั้งวันใน Google Maps</a>':'')}
+ if(edit)h+='<input class="in" data-p="day" data-f="tot" value="'+E(d.tot)+'" placeholder="รวมระยะทาง เช่น 14 กม. · 39 น.">';
+ else{var ru=S.map?routeUrl(d):"";h+='<div class="tot">🚗 รวม '+E(d.tot)+'</div><div class="bar"><i style="width:'+Math.min(100,Math.round(km(d.tot)/207*100))+'%"></i></div><div class="cap">ระยะทางเทียบวันที่ไกลที่สุด · '+d.st.length+' จุด · แตะชื่อจุดเพื่อดูเวลาถึงจากจุดนั้น</div>'+rWx()+prog(d)+(ru?'<a class="rtb" target="_blank" rel="noopener" href="'+E(ru)+'">🧭 เส้นทางทั้งวันใน Google Maps</a>':'')}
  h+=rNx(d,ET);d.st.forEach(function(s,k){
   if(edit){h+='<div class="st ed"><div class="n">'+(k+1)+'</div><div class="ef"><input class="in" data-p="st" data-i="'+k+'" data-f="n" value="'+E(s.n)+'" placeholder="ชื่อสถานที่"><div class="r2"><input class="in" list="tags" data-p="st" data-i="'+k+'" data-f="g" value="'+E(s.g)+'" placeholder="ประเภท"><input class="in" data-p="st" data-i="'+k+'" data-f="d" value="'+E(s.d)+'" placeholder="ระยะ/เวลา"></div><input class="in" inputmode="numeric" data-p="st" data-i="'+k+'" data-f="m" value="'+E(s.m||"")+'" placeholder="เวลาที่อยู่ที่จุดนี้ (นาที)"><input class="in" data-p="st" data-i="'+k+'" data-f="t" value="'+E(s.t)+'" placeholder="หมายเหตุ"><input class="in" data-p="st" data-i="'+k+'" data-f="q" value="'+E(s.q)+'" placeholder="คำค้นหาใน Google Maps"></div><div class="ac"><button onclick="mv('+k+',-1)">↑</button><button onclick="mv('+k+',1)">↓</button><button onclick="del('+k+')">🗑️</button></div></div>'}
   else{var mp=S.map&&s.g!=="เดินทาง"&&s.q?'<a class="mp" target="_blank" rel="noopener" href="'+E(mapUrl(s.q))+'" title="เปิด Google Maps">🗺️</a>':'';
-   h+='<div class="st'+(s.done?' dn':'')+(noA?' na':'')+'" style="animation-delay:'+(k*60)+'ms"><div class="n'+(s.done?' ck':'')+'" onclick="tk('+k+')" role="button">'+(s.done?'✓':(k+1))+'</div><div class="ico">'+ic(s.n,s.g)+'</div><div class="mid"><div class="nm">'+E(s.n)+'</div><div class="nt"><span class="tg">'+E(s.g)+'</span>'+(s.t?' '+E(s.t):'')+'</div>'+(ET[k]?'<div class="eta">🕒 '+(s.done&&s.ts!=null?'ถึงจริง ':k?'ถึง ':'ออก ')+ET[k]+(+s.m?' · อยู่ '+E(s.m)+' น.':'')+'</div>':'')+'</div><div class="ds">'+(/กม|น\./.test(s.d)?"🚗 ":"")+E(s.d)+'</div>'+mp+'</div>'}});
+   h+='<div class="st'+(s.done?' dn':'')+(noA?' na':'')+'" style="animation-delay:'+(k*60)+'ms"><div class="n'+(s.done?' ck':'')+'" onclick="tk('+k+')" role="button">'+(s.done?'✓':(k+1))+'</div><div class="ico">'+ic(s.n,s.g)+'</div><div class="mid" onclick="selp('+k+')"><div class="nm">'+E(s.n)+'</div><div class="nt"><span class="tg">'+E(s.g)+'</span>'+(s.t?' '+E(s.t):'')+'</div>'+(k&&/กม|น\./.test(s.d)?'<div class="fr">🚗 จาก '+E(d.st[k-1].n||"จุดก่อนหน้า")+' → '+E(s.d)+'</div>':'')+(ET[k]?'<div class="eta">'+(ET.findIndex(function(x){return x})===k?'📍 อยู่ที่นี่ ':'🕒 ถึง ')+ET[k]+(+s.m?' · อยู่ '+E(s.m)+' น.':'')+'</div>':'')+'</div><div class="ds">'+(/กม|น\./.test(s.d)?"🚗 ":"")+E(s.d)+'</div>'+mp+'</div>'}});
  h+=rExp(d);
  if(edit)h+='<button class="add" onclick="addStop()">➕ เพิ่มจุด</button><button class="add" onclick="reroute(cur,true)">🔄 คำนวณระยะจาก Google Maps ใหม่</button>';
  else h+='<div class="nx">'+(cur>0?'<button onclick="go('+(cur-1)+');window.scrollTo(0,0)">‹ วัน '+cur+'</button>':'<span></span>')+(cur<S.days.length-1?'<button onclick="go('+(cur+1)+');window.scrollTo(0,0)">วัน '+(cur+2)+' ›</button>':'<span>🎉 จบทริปแล้ว</span>')+'</div>';
@@ -397,7 +397,14 @@ function rLists(){function box(key,cls,title){var h='<div class="box '+cls+'"><h
 function render(){noA=false;if(cur>=S.days.length)cur=S.days.length-1;var c=col(cur),st=document.documentElement.style;st.setProperty("--dc",c[0]);st.setProperty("--dc2",c[1]);rNav();rStats();rTb();rDay();rLists();rOv();rBud();if(window.rHero)rHero()}
 function pad(n){return(n<10?"0":"")+n}
 function fmt(c){c=((c%1440)+1440)%1440;return pad(Math.floor(c/60))+"."+pad(c%60)+" น."}
-function etas(d){var a=(d.s0||"").split(":"),c=(a.length===2&&a[0]!=="")?(+a[0])*60+(+a[1]):null,o=[];d.st.forEach(function(s){if(s.done&&s.ts!=null&&s.ts!==""){c=+s.ts;o.push(fmt(c));c+=(+s.m||0);return}if(c===null){o.push("");return}c+=mins(s.d);o.push(fmt(c));c+=(+s.m||0)});return o}
+function etas(d){var o=d.st.map(function(){return""}),a=-1,c=null;
+ d.st.forEach(function(s,k){if(s.done&&s.ts!=null&&s.ts!==""){a=k;c=+s.ts}});
+ if(d.from!=null&&d.fromTs!=null&&d.from>=a&&d.from<d.st.length){a=d.from;c=+d.fromTs}
+ if(a<0)return o;
+ o[a]=fmt(c);c+=(+d.st[a].m||0);
+ for(var k=a+1;k<d.st.length;k++){c+=mins(d.st[k].d);o[k]=fmt(c);c+=(+d.st[k].m||0)}
+ return o}
+function selp(k){var d=S.days[cur];if(edit)return;if(d.from===k){delete d.from;delete d.fromTs}else{var n=new Date();d.from=k;d.fromTs=n.getHours()*60+n.getMinutes()}save();noA=true;rDay()}
 function tmRow(d){return'<div class="tmr"><span>🕒 ออกเดินทางเวลา</span><input class="tm" type="time" data-p="day" data-f="s0" value="'+E(d.s0||"")+'"></div>'}
 function prog(d){var n=d.st.length,k=d.st.filter(function(s){return s.done}).length,p=n?Math.round(k*100/n):0;return'<div class="pg"><span>'+(n&&k===n?"🎉 ครบแล้ว":"✅ ไปแล้ว "+k+"/"+n+" จุด")+'</span><b>'+p+'%</b></div><div class="bar g"><i style="width:'+p+'%"></i></div><div class="cap">แตะตัวเลขหน้าจุดเพื่อติ๊กว่าไปแล้ว</div>'}
 function rOv(){var n=0,k=0,f=[],last=-1;S.days.forEach(function(d,di){d.st.forEach(function(s){if(s.done){k++;last=f.length}f.push({n:s.n,d:di+1,x:s.done});n++})});
