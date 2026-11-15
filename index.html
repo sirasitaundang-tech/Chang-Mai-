@@ -380,30 +380,35 @@ var FD={f:"",t:"",res:null,busy:false},fdT=null;
 /* ===== ข้ามจุด: ถ้าติ๊กว่าไปแล้วโดยข้ามจุดตรงกลาง ใช้ระยะจริงจากจุดที่ไปแล้วล่าสุด ไม่ใช่จากจุดก่อนหน้าในแผน ===== */
 function prevDone(d,k){for(var j=k-1;j>=0;j--)if(d.st[j].done)return j;return -1}
 function skOk(d,k,s){var x=s.sk;return !!(s.done&&x&&d.st[x.f]&&d.st[x.f].n===x.n&&x.f<k-1)}
-function fxKey(d,k){var a=d.st[d.from],b=d.st[k];return((a&&(a.q||a.n))||"")+">"+((b&&(b.q||b.n))||"")}
+function fxKey(d,p,k){var a=d.st[p],b=d.st[k];return((a&&(a.q||a.n))||"")+">"+((b&&(b.q||b.n))||"")}
 var FXC={},FXB=false;try{FXC=JSON.parse(localStorage.getItem("cm_fx")||"{}")||{}}catch(e){FXC={}}
 function fxSave(){try{var o={};Object.keys(FXC).forEach(function(k){if(FXC[k]&&FXC[k].d)o[k]=FXC[k]});localStorage.setItem("cm_fx",JSON.stringify(o))}catch(e){}}
 function fxOn(d){return !edit&&d.from!=null&&d.from<d.st.length}
-// ระยะจริง "จากจุดที่เลือก" ไปแต่ละจุด (ตรง ๆ ตามถนน) คำนวณอัตโนมัติ
-function fxEnsure(){var d=S.days[cur];if(!d||!fxOn(d)||FXB)return;var todo=[];
- for(var k=d.from+1;k<d.st.length;k++){var s=d.st[k];if(s.g==="เดินทาง"||!(s.q||s.n))continue;var key=fxKey(d,k);if(!FXC[key])todo.push({key:key,qa:d.st[d.from].q||d.st[d.from].n,qb:s.q||s.n})}
+// จุดอ้างอิงของจุด k: (1) จุดเริ่มที่แตะเลือก  (2) จุดที่ติ๊ก ✓ ล่าสุดก่อนหน้า (เมื่อจุด k ติ๊กแล้วและข้ามจุดตรงกลาง)  ไม่งั้น -1 = ใช้ระยะจากจุดก่อนหน้าตามปกติ
+function fxRef(d,k){var s=d.st[k];if(edit||!s||s.g==="เดินทาง")return -1;
+ if(fxOn(d))return k>d.from?d.from:-1;
+ if(s.done){var p=prevDone(d,k);if(p>=0&&p<k-1)return p}
+ return -1}
+function fxEnsure(){var d=S.days[cur];if(!d||edit||FXB)return;var todo=[];
+ for(var k=0;k<d.st.length;k++){var p=fxRef(d,k);if(p<0)continue;var a=d.st[p],b=d.st[k];if(!(a.q||a.n)||!(b.q||b.n))continue;var key=fxKey(d,p,k);if(!FXC[key]&&!todo.some(function(x){return x.key===key}))todo.push({key:key,qa:a.q||a.n,qb:b.q||b.n})}
  if(!todo.length)return;FXB=true;
  (function nx(){var t=todo.shift();if(!t){FXB=false;fxEnsure();return}
   var tries=0;(function go(){tries++;
    fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:[t.qa,t.qb]})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error?(j.error+(j.place?":"+j.place:"")):x.status);return j})})
    .then(function(j){var l=j.legs[0];FXC[t.key]={d:Math.max(1,Math.round(l.km))+" กม. · "+dur(Math.max(1,l.min))};fxSave();fin()})
    .catch(function(e){var m=String(e&&e.message||e);
-    // เซิร์ฟเวอร์ Render อาจกำลังตื่น (ช้า ~1 นาที) หรือเรียกถี่เกิน: ลองใหม่อัตโนมัติ
     if(tries<4&&m.indexOf("not_found")!==0){setSy("⏳ กำลังปลุกเซิร์ฟเวอร์ ลองใหม่ครั้งที่ "+tries+"…");setTimeout(go,tries*5000);return}
     FXC[t.key]={err:m};fin()})})();
   function fin(){noA=true;rDay();nx()}})()}
 function fxRetry(){Object.keys(FXC).forEach(function(k){if(FXC[k]&&FXC[k].err)delete FXC[k]});FXB=false;noA=true;rDay()}
-function dsTxt(d,k,s){if(fxOn(d)){if(k<=d.from||s.g==="เดินทาง")return"";var r=FXC[fxKey(d,k)];return r&&r.d?"🚗 ✓ "+E(r.d):""}
+function dsTxt(d,k,s){if(fxOn(d)&&(k<=d.from||s.g==="เดินทาง"))return"";
+ var p=fxRef(d,k);if(p>=0){var r=FXC[fxKey(d,p,k)];return r&&r.d?"🚗 ✓ "+E(r.d):""}
  return(/กม|น\./.test(s.d)?(s.rl?"🚗 ":"🚗 ≈ "):"")+E(s.d)}
 function frLine(d,k,s){
  if(fxOn(d)){if(k<d.from||s.g==="เดินทาง")return"";
-  if(k===d.from)return'<div class="fr">📍 จุดเริ่มที่เลือก (แตะชื่อจุดนี้อีกครั้งเพื่อยกเลิก)</div>';
-  var r=FXC[fxKey(d,k)];return'<div class="fr">📍 จาก '+E(d.st[d.from].n)+' → '+(r?(r.d?"✓ "+E(r.d):'คำนวณไม่ได้ ('+E(String(r.err).indexOf("not_found")===0?"หาตำแหน่งไม่เจอ":r.err)+') <button class="fdb" onclick="event.stopPropagation();fxRetry()">↻ ลองใหม่</button>'):"กำลังคำนวณ…")+'</div>'}
+  if(k===d.from)return'<div class="fr">📍 จุดเริ่มที่เลือก (แตะชื่อจุดนี้อีกครั้งเพื่อยกเลิก)</div>'}
+ var p=fxRef(d,k);
+ if(p>=0){var r=FXC[fxKey(d,p,k)];return'<div class="fr">📍 จาก '+E(d.st[p].n)+' → '+(r?(r.d?"✓ "+E(r.d):'คำนวณไม่ได้ ('+E(String(r.err).indexOf("not_found")===0?"หาตำแหน่งไม่เจอ":r.err)+') <button class="fdb" onclick="event.stopPropagation();fxRetry()">↻ ลองใหม่</button>'):"กำลังคำนวณ…")+'</div>'}
  return k&&/กม|น\./.test(s.d)?'<div class="fr">🚗 จาก '+E(d.st[k-1].n||"จุดก่อนหน้า")+' → '+(s.rl?'✓ ':'≈ ')+E(s.d)+'</div>':''}
 function cumFrom(d,k){if(d.from==null||k<=d.from||k>=d.st.length)return null;var K=0,M=0,real=true;for(var j=d.from+1;j<=k;j++){var s=d.st[j];K+=km(s.d);M+=mins(s.d);if(!s.rl)real=false}return{K:K,M:M,real:real}}
 function fdTo(k){var d=S.days[cur];FD.f=cur+":"+(d.from!=null?d.from:0);FD.t=cur+":"+k;FD.res=null;fdGo();var e=document.querySelector(".fd");if(e)e.scrollIntoView({behavior:"smooth",block:"center"})}
