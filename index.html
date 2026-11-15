@@ -336,6 +336,8 @@ hot:["Grand Living Residence","Easy Hotel 1","ไชยพลโฮมสเต�
 note:["ระยะทาง/เวลา เป็นค่าประมาณ จากการขับรถปกติ","ไม่รวมเวลาเที่ยว จอดรถ และทานอาหาร","เช็คเส้นทางจริงใน Google Maps อีกครั้ง","สุกี้ช้างเผือก (วันที่ 1) อาจจะยกเลิก"]}}
 try{var r0=localStorage.getItem(KEY);if(r0)S=JSON.parse(r0)}catch(e){}
 if(!S||!S.days)S=conv();
+function clean(s){if(s.tv===2)return;var O=[[15,40,30,60,75],[20,60,45,90,0,20,90,120],[15,60,180,30],[15,240,30,90],[15,75,120,60,120,30],[0,120,30,60,75],[15,60,120,20,0]];s.days.forEach(function(d,i){d.st.forEach(function(x,k){delete x.at;if(O[i]&&x.m!==undefined&&String(x.m)===String(O[i][k]||""))delete x.m})});s.tv=2}
+clean(S);
 S.days.forEach(function(d,i){if(d.s0===undefined)d.s0=DS[i]||""});
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}pushRemote()}
 var C=[["#e8336f","#ff7eb3"],["#f7701d","#ffb347"],["#12a36a","#5be0a0"],["#7a3fe0","#b794ff"],["#ee4b4b","#ff9a76"],["#0fa3b8","#4fe0d0"],["#3f5bdb","#8aa4ff"]];
@@ -353,6 +355,19 @@ var t=document.getElementById("tabs"),v=document.getElementById("v"),tb=document
 var dl0=document.createElement("datalist");dl0.id="tags";dl0.innerHTML=Object.keys(TG).map(function(k){return'<option value="'+k+'">'}).join("");document.body.appendChild(dl0);
 function col(i){return C[i%C.length]}
 var NP=["เดินทาง","เช็คเอาท์","เริ่มต้น","รถเช่า","บินกลับ"];
+var ROUTE_URL="https://changmai-sync.onrender.com/route",rtT=null,rtMsg="";
+function dur(m){return m>=60?Math.floor(m/60)+" ชม."+(m%60?" "+(m%60)+" น.":""):m+" น."}
+function sched(){clearTimeout(rtT);rtT=setTimeout(function(){reroute(cur)},1500)}
+// คำนวณระยะ/เวลาขับ "จากจุดก่อนหน้า" ของทุกจุดที่มีคำค้น Google Maps ติดกัน (จุดที่ไม่มีคำค้นคงค่าเดิมไว้)
+function reroute(di,manual){var d=S.days[di];if(!d)return Promise.resolve();var runs=[],r=null;
+ d.st.forEach(function(s,k){if(s.q){if(!r){r=[];runs.push(r)}r.push(k)}else r=null});
+ runs=runs.filter(function(x){return x.length>1});
+ if(!runs.length){if(manual)setSy("ℹ️ ต้องมีคำค้น Google Maps อย่างน้อย 2 จุดติดกัน");return Promise.resolve()}
+ setSy("📍 กำลังคำนวณระยะจาก Google Maps…");
+ return Promise.all(runs.map(function(run){var qs=run.map(function(k){return d.st[k].q});
+  return fetch(ROUTE_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({places:qs})}).then(function(x){return x.json().then(function(j){if(!x.ok)throw new Error(j&&j.error||x.status);return j})}).then(function(j){
+   run.forEach(function(k,i){if(i===0)return;var s=d.st[k],p=d.st[run[i-1]];if(s.q!==qs[i]||p.q!==qs[i-1])return;var l=j.legs[i-1];s.d=Math.max(1,Math.round(l.km))+" กม. · "+dur(Math.max(1,l.min))})})
+ })).then(function(){var K=0,M=0;d.st.forEach(function(s){K+=km(s.d);M+=mins(s.d)});d.tot=K+" กม. · "+dur(M);save();noA=true;rDay();rStats();setSy("🟢 คำนวณระยะจาก Google Maps แล้ว")}).catch(function(e){var m=String(e&&e.message||e);setSy(m==="no_key"?"⚠️ ยังไม่ได้ตั้ง GOOGLE_MAPS_KEY ที่ Render":m==="rate_limited"?"⚠️ เรียกบ่อยเกินไป รอสักครู่":"⚠️ คำนวณระยะไม่สำเร็จ ("+m+")")})}
 function rStats(){var P=0,pl2=0,kt=0,kl=0,mt=0,ml=0,dl=0,n=S.days.length;
  S.days.forEach(function(d){var open=!d.st.length;d.st.forEach(function(s){var k=km(s.d),m=mins(s.d),pl=NP.indexOf(s.g)<0;kt+=k;mt+=m;if(pl)P++;if(!s.done){kl+=k;ml+=m;open=true;if(pl)pl2++}});if(open)dl++});
  stats.innerHTML='<div><em>🗓️</em><b>'+dl+'</b><span>วันที่เหลือ</span><small>จาก '+n+' วัน</small></div><div><em>📍</em><b>'+pl2+'</b><span>สถานที่เหลือ</span><small>จาก '+P+'</small></div><div><em>🛣️</em><b>'+kl+'</b><span>กม. เหลือ</span><small>จาก '+kt+'</small></div><div><em>⏱️</em><b>'+(ml/60).toFixed(1)+'</b><span>ชม. เหลือ</span><small>จาก '+(mt/60).toFixed(1)+'</small></div>'}
@@ -370,9 +385,9 @@ function rDay(){var d=S.days[cur],ET=etas(d),h='<div class="day"><div class="dh"
  h+=rNx(d,ET);d.st.forEach(function(s,k){
   if(edit){h+='<div class="st ed"><div class="n">'+(k+1)+'</div><div class="ef"><input class="in" data-p="st" data-i="'+k+'" data-f="n" value="'+E(s.n)+'" placeholder="ชื่อสถานที่"><div class="r2"><input class="in" list="tags" data-p="st" data-i="'+k+'" data-f="g" value="'+E(s.g)+'" placeholder="ประเภท"><input class="in" data-p="st" data-i="'+k+'" data-f="d" value="'+E(s.d)+'" placeholder="ระยะ/เวลา"></div><input class="in" inputmode="numeric" data-p="st" data-i="'+k+'" data-f="m" value="'+E(s.m||"")+'" placeholder="เวลาที่อยู่ที่จุดนี้ (นาที)"><input class="in" data-p="st" data-i="'+k+'" data-f="t" value="'+E(s.t)+'" placeholder="หมายเหตุ"><input class="in" data-p="st" data-i="'+k+'" data-f="q" value="'+E(s.q)+'" placeholder="คำค้นหาใน Google Maps"></div><div class="ac"><button onclick="mv('+k+',-1)">↑</button><button onclick="mv('+k+',1)">↓</button><button onclick="del('+k+')">🗑️</button></div></div>'}
   else{var mp=S.map&&s.g!=="เดินทาง"&&s.q?'<a class="mp" target="_blank" rel="noopener" href="'+E(mapUrl(s.q))+'" title="เปิด Google Maps">🗺️</a>':'';
-   h+='<div class="st'+(s.done?' dn':'')+(noA?' na':'')+'" style="animation-delay:'+(k*60)+'ms"><div class="n'+(s.done?' ck':'')+'" onclick="tk('+k+')" role="button">'+(s.done?'✓':(k+1))+'</div><div class="ico">'+ic(s.n,s.g)+'</div><div class="mid"><div class="nm">'+E(s.n)+'</div><div class="nt"><span class="tg">'+E(s.g)+'</span>'+(s.t?' '+E(s.t):'')+'</div>'+(ET[k]?'<div class="eta">🕒 '+(k?'ถึง ':'ออก ')+ET[k]+(+s.m?' · อยู่ '+E(s.m)+' น.':'')+'</div>':'')+'</div><div class="ds">'+(/กม|น\./.test(s.d)?"🚗 ":"")+E(s.d)+'</div>'+mp+'</div>'}});
+   h+='<div class="st'+(s.done?' dn':'')+(noA?' na':'')+'" style="animation-delay:'+(k*60)+'ms"><div class="n'+(s.done?' ck':'')+'" onclick="tk('+k+')" role="button">'+(s.done?'✓':(k+1))+'</div><div class="ico">'+ic(s.n,s.g)+'</div><div class="mid"><div class="nm">'+E(s.n)+'</div><div class="nt"><span class="tg">'+E(s.g)+'</span>'+(s.t?' '+E(s.t):'')+'</div>'+(ET[k]?'<div class="eta">🕒 '+(s.done&&s.ts!=null?'ถึงจริง ':k?'ถึง ':'ออก ')+ET[k]+(+s.m?' · อยู่ '+E(s.m)+' น.':'')+'</div>':'')+'</div><div class="ds">'+(/กม|น\./.test(s.d)?"🚗 ":"")+E(s.d)+'</div>'+mp+'</div>'}});
  h+=rExp(d);
- if(edit)h+='<button class="add" onclick="addStop()">➕ เพิ่มจุด</button>';
+ if(edit)h+='<button class="add" onclick="addStop()">➕ เพิ่มจุด</button><button class="add" onclick="reroute(cur,true)">🔄 คำนวณระยะจาก Google Maps ใหม่</button>';
  else h+='<div class="nx">'+(cur>0?'<button onclick="go('+(cur-1)+');window.scrollTo(0,0)">‹ วัน '+cur+'</button>':'<span></span>')+(cur<S.days.length-1?'<button onclick="go('+(cur+1)+');window.scrollTo(0,0)">วัน '+(cur+2)+' ›</button>':'<span>🎉 จบทริปแล้ว</span>')+'</div>';
  v.innerHTML=h+'</div>';rTb()}
 function rLists(){function box(key,cls,title){var h='<div class="box '+cls+'"><h3>'+title+'</h3><ul>';
@@ -382,14 +397,14 @@ function rLists(){function box(key,cls,title){var h='<div class="box '+cls+'"><h
 function render(){noA=false;if(cur>=S.days.length)cur=S.days.length-1;var c=col(cur),st=document.documentElement.style;st.setProperty("--dc",c[0]);st.setProperty("--dc2",c[1]);rNav();rStats();rTb();rDay();rLists();rOv();rBud();if(window.rHero)rHero()}
 function pad(n){return(n<10?"0":"")+n}
 function fmt(c){c=((c%1440)+1440)%1440;return pad(Math.floor(c/60))+"."+pad(c%60)+" น."}
-function etas(d){var a=(d.s0||"").split(":"),c=(a.length===2&&a[0]!=="")?(+a[0])*60+(+a[1]):null,o=[];d.st.forEach(function(s){if(c===null){o.push("");return}c+=mins(s.d);o.push(fmt(c));c+=(+s.m||0)});return o}
+function etas(d){var a=(d.s0||"").split(":"),c=(a.length===2&&a[0]!=="")?(+a[0])*60+(+a[1]):null,o=[];d.st.forEach(function(s){if(s.done&&s.ts!=null&&s.ts!==""){c=+s.ts;o.push(fmt(c));c+=(+s.m||0);return}if(c===null){o.push("");return}c+=mins(s.d);o.push(fmt(c));c+=(+s.m||0)});return o}
 function tmRow(d){return'<div class="tmr"><span>🕒 ออกเดินทางเวลา</span><input class="tm" type="time" data-p="day" data-f="s0" value="'+E(d.s0||"")+'"></div>'}
 function prog(d){var n=d.st.length,k=d.st.filter(function(s){return s.done}).length,p=n?Math.round(k*100/n):0;return'<div class="pg"><span>'+(n&&k===n?"🎉 ครบแล้ว":"✅ ไปแล้ว "+k+"/"+n+" จุด")+'</span><b>'+p+'%</b></div><div class="bar g"><i style="width:'+p+'%"></i></div><div class="cap">แตะตัวเลขหน้าจุดเพื่อติ๊กว่าไปแล้ว</div>'}
 function rOv(){var n=0,k=0,f=[],last=-1;S.days.forEach(function(d,di){d.st.forEach(function(s){if(s.done){k++;last=f.length}f.push({n:s.n,d:di+1,x:s.done});n++})});
  var p=n?Math.round(k*100/n):0,nx=null;for(var i=last+1;i<f.length;i++)if(!f[i].x){nx=f[i];break}if(!nx)for(var j=0;j<f.length;j++)if(!f[j].x){nx=f[j];break}
  var h2=!n?"":(k===n?"🎉 ครบทุกจุดแล้ว":(last<0?"📌 ยังไม่เริ่ม · จุดแรก: <b>"+E(nx.n)+"</b>":"📌 ถึงล่าสุด: <b>"+E(f[last].n)+"</b> (วันที่ "+f[last].d+")"+(nx?" · ➡️ ถัดไป: <b>"+E(nx.n)+"</b>":"")));
  document.getElementById("ov").innerHTML='<div class="here">'+h2+'</div><div class="pg"><span>🧭 ความคืบหน้าทั้งทริป · '+k+'/'+n+' จุด</span><b>'+p+'%</b></div><div class="bar g"><i style="width:'+p+'%"></i></div>'}
-function tk(k){var s=S.days[cur].st[k];s.done=!s.done;save();noA=true;rDay();rOv();rStats()}
+function tk(k){var s=S.days[cur].st[k];s.done=!s.done;if(s.done){var n=new Date();s.ts=n.getHours()*60+n.getMinutes()}else delete s.ts;save();noA=true;rDay();rOv();rStats()}
 function clr(){S.days.forEach(function(d){d.st.forEach(function(s){s.done=false})});save();render()}
 var CT=[["🍜","อาหาร"],["⛽","น้ำมัน/เดินทาง"],["🏨","ที่พัก"],["🎟️","ตั๋ว/ค่าเข้า"],["🛍️","ช็อปปิ้ง"],["✨","อื่นๆ"]];
 function fm(n){return(Math.round((+n||0)*100)/100).toLocaleString("en-US")}
@@ -404,20 +419,20 @@ function ask(el,id,f){if(arm===id){arm=null;f();return}arm=id;el.textContent="�
 function doReset(){S=conv();cur=0;save();render()}
 function delDay(){S.days.splice(cur,1);save();render()}
 function addDay(){S.days.push({a:"วันที่ "+(S.days.length+1),b:"",sub:"",tot:"",st:[]});cur=S.days.length-1;save();render();window.scrollTo(0,0)}
-function addStop(){S.days[cur].st.push({n:"",g:"เที่ยว",t:"",d:"",q:""});save();rStats();rDay()}
-function del(k){S.days[cur].st.splice(k,1);save();rDay()}
-function mv(k,d){var a=S.days[cur].st,j=k+d;if(j<0||j>=a.length)return;var x=a[k];a[k]=a[j];a[j]=x;save();rDay()}
+function addStop(){S.days[cur].st.push({n:"",g:"เที่ยว",t:"",d:"",q:""});save();rStats();rDay();sched()}
+function del(k){S.days[cur].st.splice(k,1);save();rDay();sched()}
+function mv(k,d){var a=S.days[cur].st,j=k+d;if(j<0||j>=a.length)return;var x=a[k];a[k]=a[j];a[j]=x;save();rDay();sched()}
 function addL(k){S[k].push("");save();rLists()}
 function delL(k,i){S[k].splice(i,1);save();rLists()}
 document.addEventListener("input",function(e){var el=e.target,p=el.dataset.p;if(!p)return;var i=+el.dataset.i;
  if(p==="places")S.places=el.value;else if(p==="day"){S.days[cur][el.dataset.f]=el.value;if(el.dataset.f==="tot")rStats()}
- else if(p==="st")S.days[cur].st[i][el.dataset.f]=el.value;else S[p][i]=el.value;save()});
+ else if(p==="st"){S.days[cur].st[i][el.dataset.f]=el.value;if(el.dataset.f==="q")sched()}else S[p][i]=el.value;save()});
 document.addEventListener("change",function(e){var el=e.target;if(el.dataset&&el.dataset.p==="day"&&el.dataset.f==="s0"){noA=true;rDay()}});
 function setSy(m){SYM=m;var e=document.getElementById("sy");if(e)e.textContent=m}
 function pushRemote(){if(!docRef||ro)return;ld=true;clearTimeout(wTimer);wTimer=setTimeout(flush,700);setSy("🟡 กำลังบันทึก…")}
 function flush(){if(wBusy){wDirty=true;return}var j=JSON.stringify(S);ld=false;if(j===lastJ){setSy("🟢 ซิงค์สด");return}wBusy=true;lastJ=j;
  docRef.set({state:j,at:Date.now()}).then(function(){wBusy=false;if(wDirty){wDirty=false;flush()}else if(!ld)setSy("🟢 ซิงค์สด")}).catch(function(e){wBusy=false;lastJ="";if(e&&e.code==="invalid_argument"){ro=true;setSy("👀 ดูอย่างเดียว")}else setSy("⚠️ บันทึกไม่สำเร็จ")})}
-function take(n,j){S=n;lastJ=j;S.days.forEach(function(d,i){if(d.s0===undefined)d.s0=DS[i]||""});try{localStorage.setItem(KEY,j)}catch(e){}noA=true;var sc=window.scrollY;render();noA=false;setSy(ro?"👀 ดูอย่างเดียว":"🟢 ซิงค์สด")}
+function take(n,j){S=n;clean(S);lastJ=j;S.days.forEach(function(d,i){if(d.s0===undefined)d.s0=DS[i]||""});try{localStorage.setItem(KEY,j)}catch(e){}noA=true;var sc=window.scrollY;render();noA=false;setSy(ro?"👀 ดูอย่างเดียว":"🟢 ซิงค์สด")}
 function typing(){var a=document.activeElement;return a&&/INPUT|TEXTAREA/.test(a.tagName)}
 function onRemote(snap){if(!snap.exists||snap.metadata.hasPendingWrites)return;var d=snap.data();if(!d||typeof d.state!=="string")return;var j=d.state;if(j===lastJ)return;var n;try{n=JSON.parse(j)}catch(e){return}if(!n||!n.days)return;
  if(ld)return;if(typing()){pend=j;return}take(n,j)}
